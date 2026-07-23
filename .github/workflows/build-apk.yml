@@ -65,4 +65,4 @@ jobs:
             - WebSocket 实时通信
             - 对接 NovaMind API
         env:
-          GITHUB_TOKEN: *** secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
