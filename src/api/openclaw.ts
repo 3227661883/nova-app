@@ -4,8 +4,6 @@ const API_HTTP_URL = 'http://47.245.178.113:3001';
 const APP_NAME = 'NOVA';
 const API_TOKEN_KEY = 'nova_token';
 const API_USER_KEY = 'nova_user';
-const API_TOKEN_KEY = 'nova_token';
-const API_USER_KEY = 'nova_user';
 
 export interface ChatMessage {
   id: string;
@@ -24,7 +22,7 @@ class OpenClawAPI {
   // 登录验证
   async login(username: string, password: string): Promise<boolean> {
     try {
-      const res = await fetch(`${OPENCLAW_HTTP_URL}/api/auth/login`, {
+      const res = await fetch(`${API_HTTP_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
@@ -43,7 +41,7 @@ class OpenClawAPI {
 
   // 连接 WebSocket
   private connectWebSocket() {
-    this.ws = new WebSocket(`${OPENCLAW_WS_URL}?token=${this.token}`);
+    this.ws = new WebSocket(`${API_WS_URL}?token=${this.token}`);
     this.ws.onmessage = (event) => {
       const msg: ChatMessage = JSON.parse(event.data);
       this.messageHandlers.forEach((h) => h(msg));
