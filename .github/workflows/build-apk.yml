@@ -1,0 +1,68 @@
+name: Build NOVA APK
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          accept-android-sdk-licenses: true
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      - name: Build APK
+        run: |
+          cd android
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: nova-app-apk
+          path: android/app/build/outputs/apk/release/*.apk
+
+      - name: Create Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: android/app/build/outputs/apk/release/*.apk
+          tag_name: v1.0.${{ github.run_number }}
+          name: NOVA App v1.0.${{ github.run_number }}
+          body: |
+            ✨ NOVA App 自动构建
+            - React Native 0.86.0
+            - 微信风格气泡对话
+            - JWT 认证
+            - 文字/图片/语音/视频消息
+            - WebSocket 实时通信
+            - 对接 NovaMind API
+        env:
+          GITHUB_TOKEN: *** secrets.GITHUB_TOKEN }}
