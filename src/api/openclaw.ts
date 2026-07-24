@@ -1,9 +1,9 @@
-// NOVA App - NovaMind API 连接
-const API_WS_URL = 'ws://47.245.178.113:3001/ws';
-const API_HTTP_URL = 'http://47.245.178.113:3001';
+// NOVA App - NOVA API 连接
+const API_WS_URL = 'wss://api.m1911.xyz/ws';
+const API_HTTP_URL = 'https://api.m1911.xyz';
 const APP_NAME = 'NOVA';
-const API_TOKEN_KEY = 'nova_token';
-const API_USER_KEY = 'nova_user';
+const API_TOKEN_KEY = '***';
+const API_USER_KEY = '***';
 
 export interface ChatMessage {
   id: string;
@@ -19,7 +19,6 @@ class OpenClawAPI {
   private token: string = '';
   private messageHandlers: ((msg: ChatMessage) => void)[] = [];
 
-  // 登录验证
   async login(username: string, password: string): Promise<boolean> {
     try {
       const res = await fetch(`${API_HTTP_URL}/api/auth/login`, {
@@ -39,9 +38,8 @@ class OpenClawAPI {
     }
   }
 
-  // 连接 WebSocket
   private connectWebSocket() {
-    this.ws = new WebSocket(`${API_WS_URL}?token=${this.token}`);
+    this.ws = new WebSocket(`${API_WS_URL}?token=***}`);
     this.ws.onmessage = (event) => {
       const msg: ChatMessage = JSON.parse(event.data);
       this.messageHandlers.forEach((h) => h(msg));
@@ -51,21 +49,18 @@ class OpenClawAPI {
     };
   }
 
-  // 发送文字消息
   sendText(text: string) {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ type: 'text', content: text }));
     }
   }
 
-  // 发送媒体（图片/语音/视频）
   sendMedia(uri: string, mediaType: 'image' | 'audio' | 'video') {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ type: 'media', mediaType, uri }));
     }
   }
 
-  // 监听消息
   onMessage(handler: (msg: ChatMessage) => void) {
     this.messageHandlers.push(handler);
   }
