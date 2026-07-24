@@ -14,7 +14,7 @@ export interface ChatMessage {
   timestamp: number;
 }
 
-class OpenClawAPI {
+class NovaAPI {
   private ws: WebSocket | null = null;
   private token: string = '';
   private messageHandlers: ((msg: ChatMessage) => void)[] = [];
@@ -36,6 +36,22 @@ class OpenClawAPI {
     } catch {
       return false;
     }
+  }
+
+  async register(username: string, password: string, nickname?: string) {
+    const res = await fetch(`${API_HTTP_URL}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password, nickname: nickname || username }),
+    });
+    return res.json();
+  }
+
+  async getHistory(limit = 50) {
+    const res = await fetch(`${API_HTTP_URL}/api/messages/history?limit=${limit}`, {
+      headers: { Authorization: `Bearer ${this.token}` },
+    });
+    return res.json();
   }
 
   private connectWebSocket() {
@@ -61,6 +77,18 @@ class OpenClawAPI {
     }
   }
 
+  // HTTP 上传（作为 WS 不可用时的降级）
+  async uploadMedia(file: { uri: string; type: string; name: string }, mediaType: 'image' | 'audio' | 'video') {
+    const formData = new FormData();
+    formData.append('file', file as any);
+    const res = await fetch(`${API_HTTP_URL}/api/messages/${mediaType}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${this.token}` },
+      body: formData,
+    });
+    return res.json();
+  }
+
   onMessage(handler: (msg: ChatMessage) => void) {
     this.messageHandlers.push(handler);
   }
@@ -71,4 +99,4 @@ class OpenClawAPI {
   }
 }
 
-export const openclawAPI = new OpenClawAPI();
+export const novaAPI = new NovaAPI();

@@ -1,4 +1,4 @@
-package com.novamindchat
+package com.nova
 
 import android.app.Application
 import com.facebook.react.PackageList

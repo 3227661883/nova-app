@@ -16,21 +16,8 @@ import {
 } from 'react-native';
 import {launchImageLibrary} from 'react-native-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {novaAPI} from '../api/nova-api';
 
-const API_URL = 'http://47.245.178.113:3001';
-const WS_URL = 'ws://47.245.178.113:3001/ws';
-
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  type: 'text' | 'image' | 'audio' | 'video';
-  mediaUrl?: string;
-  duration?: number;
-  timestamp: number;
-}
-
-// 预设背景图
 const BACKGROUNDS = [
   {id: 'default', name: '默认', color: '#EDEDED'},
   {id: 'dark', name: '深色', color: '#1a1a2e'},
@@ -70,46 +57,40 @@ export default function ChatScreen({navigation}: any) {
   }, []);
 
   const connectWebSocket = (tk: string) => {
-    const ws = new WebSocket(`${WS_URL}?token=***}`);
-    wsRef.current = ws;
-    ws.onopen = () => setIsConnected(true);
-    ws.onclose = () => {
-      setIsConnected(false);
-      setTimeout(() => connectWebSocket(token.current), 3000);
-    };
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'stream') {
-          setStreamingContent((prev) => prev + data.content);
-        } else if (data.type === 'message') {
-          setMessages((prev) => [...prev, {
-            id: data.id || Date.now().toString(),
-            role: 'assistant',
-            content: data.content,
-            type: 'text',
-            timestamp: data.timestamp || Date.now(),
-          }]);
-          setStreamingContent('');
-        }
-      } catch {}
-    };
+    openclawAPI.onMessage((msg) => {
+      if (msg.type === 'stream') {
+        setStreamingContent((prev) => prev + msg.content);
+      } else if (msg.type === 'message') {
+        setMessages((prev) => [...prev, {
+          id: msg.id || Date.now().toString(),
+          role: 'assistant',
+          content: msg.content,
+          type: 'text',
+          timestamp: msg.timestamp || Date.now(),
+        }]);
+        setStreamingContent('');
+      }
+    });
+    openclawAPI.connectWebSocket(tk);
+    setIsConnected(true);
+    // 连接断开重连由 openclawAPI 内部处理
   };
 
   const loadHistory = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/messages/history?limit=50`, {
-        headers: {Authorization: `Bearer ${token.current}`},
-      });
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setMessages(data.map((m: any) => ({
+      const messages = await openclawAPI.getHistory(50);
+      if (Array.isArray(messages)) {
+        setMessages(messages.map((m: any) => ({
           id: m.id,
           role: m.role,
           content: m.content,
           type: m.type,
           mediaUrl: m.media_url,
           timestamp: new Date(m.created_at).getTime(),
+        })));
+      }
+    } catch {}
+  };
         })));
       }
     } catch {}
@@ -427,7 +408,7 @@ export default function ChatScreen({navigation}: any) {
               <Text style={styles.settingsItemText}>🗑️ 清空聊天记录</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.settingsItem}>
-              <Text style={styles.settingsItemText}>ℹ️ 关于 NovaMind</Text>
+              <Text style={styles.settingsItemText}>ℹ️ 关于 NOVA</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>

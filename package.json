@@ -1,6 +1,5 @@
 {
-  "name": "NovaMindChat",
-  "version": "0.0.1",
+  "displayName": "NOVA",
   "private": true,
   "scripts": {
     "android": "react-native run-android",

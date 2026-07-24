@@ -65,6 +65,6 @@ jobs:
             - JWT 认证
             - 文字/图片/语音/视频消息
             - WebSocket 实时通信
-            - 对接 NovaMind API
+            - 对接 NOVA API
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

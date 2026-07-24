@@ -8,7 +8,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import {openclawAPI} from '../api/openclaw';
+import {novaAPI} from '../api/nova-api';
 
 export default function LoginScreen({navigation}: any) {
   const [username, setUsername] = useState('');
@@ -21,7 +21,7 @@ export default function LoginScreen({navigation}: any) {
       return;
     }
     setLoading(true);
-    const ok = await openclawAPI.login(username, password);
+    const ok = await novaAPI.login(username, password);
     setLoading(false);
     if (ok) {
       navigation.replace('Chat');

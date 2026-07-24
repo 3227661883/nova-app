@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 
-const API_URL = 'http://47.245.178.113:3001';
+import {novaAPI} from '../api/nova-api';
 
 export default function RegisterScreen({navigation}: any) {
   const [username, setUsername] = useState('');
@@ -34,18 +34,13 @@ export default function RegisterScreen({navigation}: any) {
 
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/auth/register`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({username, password, nickname: nickname || username}),
-      });
-      const data = await res.json();
+      const res = await novaAPI.register(username, password, nickname || username);
       if (res.ok) {
         Alert.alert('注册成功', '请登录', [
           {text: '去登录', onPress: () => navigation.replace('Login')},
         ]);
       } else {
-        Alert.alert('注册失败', data.error || '未知错误');
+        Alert.alert('注册失败', res.error || '未知错误');
       }
     } catch {
       Alert.alert('网络错误', '请检查网络连接');
@@ -55,7 +50,7 @@ export default function RegisterScreen({navigation}: any) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.logo}>🧠 NovaMind</Text>
+      <Text style={styles.logo}>✨ NOVA</Text>
       <Text style={styles.subtitle}>创建账号</Text>
 
       <TextInput
