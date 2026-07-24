@@ -18,6 +18,16 @@ import {launchImageLibrary} from 'react-native-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {novaAPI} from '../api/nova-api';
 
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  type: 'text' | 'image' | 'audio' | 'video';
+  mediaUrl?: string;
+  duration?: number;
+  timestamp: number;
+}
+
 const BACKGROUNDS = [
   {id: 'default', name: '默认', color: '#EDEDED'},
   {id: 'dark', name: '深色', color: '#1a1a2e'},
@@ -37,9 +47,7 @@ export default function ChatScreen({navigation}: any) {
   const [bgColor, setBgColor] = useState('#EDEDED');
   const [showEmoji, setShowEmoji] = useState(false);
   const flatListRef = useRef<FlatList>(null);
-  const wsRef = useRef<WebSocket | null>(null);
   const token = useRef<string>('');
-  const recordingRef = useRef(false);
 
   // 加载 token 和背景设置
   useEffect(() => {
@@ -53,11 +61,11 @@ export default function ChatScreen({navigation}: any) {
       }
       if (bg) setBgColor(bg);
     })();
-    return () => wsRef.current?.close();
+    return () => novaAPI.disconnect();
   }, []);
 
   const connectWebSocket = (tk: string) => {
-    openclawAPI.onMessage((msg) => {
+    novaAPI.onMessage((msg) => {
       if (msg.type === 'stream') {
         setStreamingContent((prev) => prev + msg.content);
       } else if (msg.type === 'message') {
@@ -71,26 +79,21 @@ export default function ChatScreen({navigation}: any) {
         setStreamingContent('');
       }
     });
-    openclawAPI.connectWebSocket(tk);
+    novaAPI.connectWebSocket(tk);
     setIsConnected(true);
-    // 连接断开重连由 openclawAPI 内部处理
   };
 
   const loadHistory = async () => {
     try {
-      const messages = await openclawAPI.getHistory(50);
-      if (Array.isArray(messages)) {
-        setMessages(messages.map((m: any) => ({
+      const history = await novaAPI.getHistory(50);
+      if (Array.isArray(history)) {
+        setMessages(history.map((m: any) => ({
           id: m.id,
           role: m.role,
           content: m.content,
           type: m.type,
           mediaUrl: m.media_url,
           timestamp: new Date(m.created_at).getTime(),
-        })));
-      }
-    } catch {}
-  };
         })));
       }
     } catch {}
@@ -110,56 +113,22 @@ export default function ChatScreen({navigation}: any) {
     };
     setMessages((prev) => [...prev, userMsg]);
 
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({type: 'text', content: text}));
-    } else {
-      fetch(`${API_URL}/api/messages/text`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token.current}`,
-        },
-        body: JSON.stringify({content: text}),
-      })
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.reply) {
-            setMessages((prev) => [...prev, {
-              id: Date.now().toString(),
-              role: 'assistant',
-              content: data.reply,
-              type: 'text',
-              timestamp: Date.now(),
-            }]);
-          }
-        })
-        .catch(() => {});
-    }
+    novaAPI.sendText(text);
   }, [inputText]);
 
-  // 语音发送
   const sendVoice = async (uri: string, duration: number) => {
-    const formData = new FormData();
-    formData.append('file', {
-      uri: Platform.OS === 'android' ? uri : uri.replace('file://', ''),
-      type: 'audio/m4a',
-      name: `voice_${Date.now()}.m4a`,
-    } as any);
-
     try {
-      const res = await fetch(`${API_URL}/api/messages/audio`, {
-        method: 'POST',
-        headers: {Authorization: `Bearer ${token.current}`},
-        body: formData,
-      });
-      const data = await res.json();
-      if (data.mediaUrl) {
+      const res = await novaAPI.uploadMedia(
+        {uri, type: 'audio/m4a', name: `voice_${Date.now()}.m4a`},
+        'audio'
+      );
+      if (res.mediaUrl) {
         const userMsg: Message = {
           id: Date.now().toString(),
           role: 'user',
           content: '[语音]',
           type: 'audio',
-          mediaUrl: `${API_URL}${data.mediaUrl}`,
+          mediaUrl: res.mediaUrl,
           duration,
           timestamp: Date.now(),
         };
@@ -181,27 +150,22 @@ export default function ChatScreen({navigation}: any) {
   };
 
   const uploadMedia = async (uri: string, type: 'image' | 'video') => {
-    const formData = new FormData();
-    formData.append('file', {
-      uri: Platform.OS === 'android' ? uri : uri.replace('file://', ''),
-      type: type === 'image' ? 'image/jpeg' : 'video/mp4',
-      name: `${type}_${Date.now()}.jpg`,
-    } as any);
-
     try {
-      const res = await fetch(`${API_URL}/api/messages/${type}`, {
-        method: 'POST',
-        headers: {Authorization: `Bearer ${token.current}`},
-        body: formData,
-      });
-      const data = await res.json();
-      if (data.mediaUrl) {
+      const res = await novaAPI.uploadMedia(
+        {
+          uri,
+          type: type === 'image' ? 'image/jpeg' : 'video/mp4',
+          name: `${type}_${Date.now()}.jpg`,
+        },
+        type
+      );
+      if (res.mediaUrl) {
         const userMsg: Message = {
           id: Date.now().toString(),
           role: 'user',
           content: type === 'image' ? '[图片]' : '[视频]',
-          type: type,
-          mediaUrl: `${API_URL}${data.mediaUrl}`,
+          type,
+          mediaUrl: res.mediaUrl,
           timestamp: Date.now(),
         };
         setMessages((prev) => [...prev, userMsg]);
@@ -215,24 +179,16 @@ export default function ChatScreen({navigation}: any) {
     setShowBgPicker(false);
   };
 
-  // 长按录音
   const handleVoicePressIn = () => {
-    recordingRef.current = true;
     // 实际项目中启动录音
   };
 
   const handleVoicePressOut = () => {
-    if (recordingRef.current) {
-      recordingRef.current = false;
-      // 模拟发送语音
-      sendVoice(`file:///tmp/voice_${Date.now()}.m4a`, 3);
-    }
+    sendVoice(`file:///tmp/voice_${Date.now()}.m4a`, 3);
   };
 
   const renderMessage = ({item, index}: {item: Message; index: number}) => {
     const isUser = item.role === 'user';
-
-    // 时间分隔线
     const showTime = index === 0 || (item.timestamp - messages[index - 1].timestamp) > 5 * 60 * 1000;
 
     return (
